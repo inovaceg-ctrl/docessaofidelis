@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { MapPin, Phone, Mail, Clock } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Contato = () => {
   const { toast } = useToast();
@@ -18,7 +19,7 @@ const Contato = () => {
     message: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Basic validation
@@ -26,6 +27,20 @@ const Contato = () => {
       toast({
         title: "Campos obrigatórios",
         description: "Por favor, preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Save to database
+    const { error } = await supabase
+      .from("contacts")
+      .insert([formData]);
+
+    if (error) {
+      toast({
+        title: "Erro ao enviar mensagem",
+        description: error.message,
         variant: "destructive",
       });
       return;
@@ -222,16 +237,49 @@ const Contato = () => {
           <p className="text-xl mb-8 text-muted-foreground">
             Receba novidades, promoções e conteúdos exclusivos diretamente no seu e-mail
           </p>
-          <div className="flex flex-col sm:flex-row gap-4">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const email = (e.target as any).email.value;
+              
+              const { error } = await supabase
+                .from("newsletter_subscribers")
+                .insert([{ email }]);
+
+              if (error) {
+                if (error.code === "23505") {
+                  toast({
+                    title: "Este e-mail já está cadastrado",
+                    description: "Você já está inscrito na nossa newsletter!",
+                  });
+                } else {
+                  toast({
+                    title: "Erro ao cadastrar",
+                    description: error.message,
+                    variant: "destructive",
+                  });
+                }
+              } else {
+                toast({
+                  title: "Cadastro realizado!",
+                  description: "Você receberá nossas novidades em breve.",
+                });
+                (e.target as any).reset();
+              }
+            }}
+            className="flex flex-col sm:flex-row gap-4"
+          >
             <Input
               type="email"
+              name="email"
               placeholder="Seu melhor e-mail"
               className="flex-1"
+              required
             />
-            <Button className="bg-primary hover:bg-primary/90">
+            <Button type="submit" className="bg-primary hover:bg-primary/90">
               Cadastrar
             </Button>
-          </div>
+          </form>
         </div>
       </section>
 

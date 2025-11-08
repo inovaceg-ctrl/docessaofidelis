@@ -6,8 +6,47 @@ import Footer from "@/components/Footer";
 import heroImage from "@/assets/hero-bananas.jpg";
 import bananadaImage from "@/assets/bananada-product.jpg";
 import gomaImage from "@/assets/goma-product.jpg";
+import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const Home = () => {
+  const { toast } = useToast();
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [loadingNewsletter, setLoadingNewsletter] = useState(false);
+
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoadingNewsletter(true);
+
+    const { error } = await supabase
+      .from("newsletter_subscribers")
+      .insert([{ email: newsletterEmail }]);
+
+    if (error) {
+      if (error.code === "23505") {
+        toast({
+          title: "Este e-mail já está cadastrado",
+          description: "Você já está inscrito na nossa newsletter!",
+        });
+      } else {
+        toast({
+          title: "Erro ao cadastrar",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    } else {
+      toast({
+        title: "Cadastro realizado!",
+        description: "Você receberá nossas novidades em breve.",
+      });
+      setNewsletterEmail("");
+    }
+
+    setLoadingNewsletter(false);
+  };
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -145,16 +184,24 @@ const Home = () => {
           <p className="text-xl mb-8 max-w-2xl mx-auto opacity-90">
             Fique por dentro de lançamentos, promoções e conteúdos exclusivos
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
+          <form onSubmit={handleNewsletterSubmit} className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
             <input
               type="email"
               placeholder="Seu melhor e-mail"
+              value={newsletterEmail}
+              onChange={(e) => setNewsletterEmail(e.target.value)}
               className="flex-1 px-4 py-3 rounded-lg text-foreground"
+              required
             />
-            <Button variant="secondary" size="lg">
-              Cadastrar
+            <Button
+              type="submit"
+              variant="secondary"
+              size="lg"
+              disabled={loadingNewsletter}
+            >
+              {loadingNewsletter ? "Cadastrando..." : "Cadastrar"}
             </Button>
-          </div>
+          </form>
         </div>
       </section>
 

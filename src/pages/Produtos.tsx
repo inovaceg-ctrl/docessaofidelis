@@ -5,58 +5,50 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import bananadaImage from "@/assets/bananada-product.jpg";
 import gomaImage from "@/assets/goma-product.jpg";
 import { Package } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface Product {
+  id: string;
+  name: string;
+  category: string;
+  description: string | null;
+  weight: string | null;
+  image_url: string | null;
+}
 
 const Produtos = () => {
-  const products = [
-    {
-      id: 1,
-      name: "Bananada Tradicional",
-      category: "Bananadas",
-      description: "Nossa bananada clássica, feita com bananas selecionadas e açúcar refinado. Sabor autêntico que atravessa gerações.",
-      weight: "500g",
-      image: bananadaImage,
-    },
-    {
-      id: 2,
-      name: "Bananada Premium",
-      category: "Bananadas",
-      description: "Versão especial com bananas de primeira qualidade, textura mais macia e sabor intenso.",
-      weight: "500g",
-      image: bananadaImage,
-    },
-    {
-      id: 3,
-      name: "Bananada em Barras",
-      category: "Bananadas",
-      description: "Formato prático em barras individuais, perfeito para levar onde quiser.",
-      weight: "Pack com 10 unidades",
-      image: bananadaImage,
-    },
-    {
-      id: 4,
-      name: "Goma de Amido Sortida",
-      category: "Gomas",
-      description: "Deliciosas gomas de amido em diversos sabores e cores. Perfeitas para festas e presentes.",
-      weight: "1kg",
-      image: gomaImage,
-    },
-    {
-      id: 5,
-      name: "Goma de Amido Sabor Frutas",
-      category: "Gomas",
-      description: "Gomas com sabores naturais de frutas tropicais. Sem corantes artificiais.",
-      weight: "500g",
-      image: gomaImage,
-    },
-    {
-      id: 6,
-      name: "Goma de Amido Premium",
-      category: "Gomas",
-      description: "Nossa linha premium de gomas, com texturas especiais e sabores únicos.",
-      weight: "750g",
-      image: gomaImage,
-    },
-  ];
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("active", true)
+      .order("sort_order", { ascending: true });
+
+    if (error) {
+      toast({
+        title: "Erro ao carregar produtos",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setProducts(data || []);
+    }
+    setLoading(false);
+  };
+
+  const getProductImage = (category: string) => {
+    return category.toLowerCase().includes("banana") ? bananadaImage : gomaImage;
+  };
 
   return (
     <div className="min-h-screen">
@@ -77,35 +69,47 @@ const Produtos = () => {
       {/* Products Grid */}
       <section className="py-20">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {products.map((product) => (
-              <Card key={product.id} className="overflow-hidden hover:shadow-xl transition-shadow">
-                <div className="relative h-64 overflow-hidden">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
-                  />
-                  <div className="absolute top-4 right-4 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                    {product.category}
+          {loading ? (
+            <div className="text-center">Carregando produtos...</div>
+          ) : products.length === 0 ? (
+            <div className="text-center text-muted-foreground">
+              Nenhum produto disponível no momento.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {products.map((product) => (
+                <Card key={product.id} className="overflow-hidden hover:shadow-xl transition-shadow">
+                  <div className="relative h-64 overflow-hidden">
+                    <img
+                      src={product.image_url || getProductImage(product.category)}
+                      alt={product.name}
+                      className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+                    />
+                    <div className="absolute top-4 right-4 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-semibold">
+                      {product.category}
+                    </div>
                   </div>
-                </div>
-                <CardHeader>
-                  <CardTitle className="text-2xl">{product.name}</CardTitle>
-                  <CardDescription className="flex items-center gap-2 text-base">
-                    <Package className="h-4 w-4" />
-                    {product.weight}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-6">{product.description}</p>
-                  <Button className="w-full bg-primary hover:bg-primary/90">
-                    Solicitar orçamento
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  <CardHeader>
+                    <CardTitle className="text-2xl">{product.name}</CardTitle>
+                    {product.weight && (
+                      <CardDescription className="flex items-center gap-2 text-base">
+                        <Package className="h-4 w-4" />
+                        {product.weight}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    {product.description && (
+                      <p className="text-muted-foreground mb-6">{product.description}</p>
+                    )}
+                    <Button className="w-full bg-primary hover:bg-primary/90">
+                      Solicitar orçamento
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

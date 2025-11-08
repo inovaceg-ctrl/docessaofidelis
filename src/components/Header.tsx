@@ -37,9 +37,11 @@ const Header = () => {
           </nav>
 
           <div className="hidden md:block">
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              Conheça nossa loja
-            </Button>
+            <Link to="/admin/login">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                Área Admin
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -65,9 +67,11 @@ const Header = () => {
                 {item.label}
               </Link>
             ))}
-            <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-              Conheça nossa loja
-            </Button>
+            <Link to="/admin/login" onClick={() => setMobileMenuOpen(false)}>
+              <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+                Área Admin
+              </Button>
+            </Link>
           </nav>
         )}
       </div>
