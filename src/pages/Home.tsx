@@ -74,7 +74,7 @@ const Home = () => {
               </Button>
             </Link>
             <Link to="/contato">
-              <Button size="lg" variant="outline" className="border-2 border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary">
+              <Button size="lg" variant="outline" className="border-2 border-brand-yellow text-brand-yellow hover:bg-brand-yellow hover:text-brand-brown">
                 Entre em contato
               </Button>
             </Link>
