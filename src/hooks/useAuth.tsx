@@ -19,52 +19,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Inicia como true
 
-  useEffect(() => {
-    console.log("AuthProvider: Setting up auth state listener.");
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log("AuthProvider: Auth state change event:", event, "Session:", session);
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          console.log("AuthProvider: User found in session, checking admin role for user ID:", session.user.id);
-          // Using setTimeout to ensure state updates are processed before role check,
-          // though direct call should also work. Let's keep it for now.
-          setTimeout(() => {
-            checkAdminRole(session.user.id);
-          }, 0);
-        } else {
-          console.log("AuthProvider: No user in session, setting isAdmin to false.");
-          setIsAdmin(false);
-          setLoading(false);
-        }
-      }
-    );
-
-    console.log("AuthProvider: Checking for existing session.");
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log("AuthProvider: Initial session check result:", session);
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        console.log("AuthProvider: Initial session has user, checking admin role for user ID:", session.user.id);
-        checkAdminRole(session.user.id);
-      } else {
-        console.log("AuthProvider: No user in initial session, setting loading to false.");
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      console.log("AuthProvider: Unsubscribing from auth state changes.");
-      subscription.unsubscribe();
-    };
-  }, []);
-
+  // Função para verificar o papel de administrador
   const checkAdminRole = async (userId: string) => {
     console.log("checkAdminRole: Starting check for user ID:", userId);
     try {
@@ -72,24 +29,68 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .from("user_roles")
         .select("role")
         .eq("user_id", userId)
-        .eq("role", "admin")
+        .eq("role", "admin" as const) // Usar 'as const' para segurança de tipo com enums
         .maybeSingle();
 
       if (error) {
         console.error("checkAdminRole: Error checking admin role:", error);
         setIsAdmin(false);
       } else {
-        console.log("checkAdminRole: Supabase query result for admin role:", data);
-        setIsAdmin(!!data);
+        const finalIsAdmin = !!data; // Captura o valor antes de definir o estado
+        setIsAdmin(finalIsAdmin);
+        console.log("checkAdminRole: Supabase query result for admin role:", data, "isAdmin set to:", finalIsAdmin);
       }
     } catch (error) {
       console.error("checkAdminRole: Caught exception checking admin role:", error);
       setIsAdmin(false);
     } finally {
-      console.log("checkAdminRole: Finished, isAdmin is now:", !!isAdmin); // Log current state
-      setLoading(false);
+      setLoading(false); // Define loading como false SOMENTE após a verificação de função
     }
   };
+
+  useEffect(() => {
+    let isMounted = true; // Flag para evitar atualizações de estado em componente desmontado
+
+    const handleAuthChange = async (event: string, currentSession: Session | null) => {
+      if (!isMounted) return;
+
+      console.log("AuthProvider: Auth state change event:", event, "Session:", currentSession);
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+
+      if (currentSession?.user) {
+        await checkAdminRole(currentSession.user.id); // Aguarda a verificação de função
+      } else {
+        setIsAdmin(false); // Garante que isAdmin seja false se não houver usuário
+        setLoading(false); // Conclui o carregamento se não houver usuário
+      }
+    };
+
+    // Configura o listener para mudanças de estado de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
+
+    // Verifica a sessão inicial ao carregar o componente
+    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
+      if (!isMounted) return;
+
+      console.log("AuthProvider: Initial session check result:", initialSession);
+      setSession(initialSession);
+      setUser(initialSession?.user ?? null);
+
+      if (initialSession?.user) {
+        await checkAdminRole(initialSession.user.id); // Aguarda a verificação de função
+      } else {
+        setIsAdmin(false); // Garante que isAdmin seja false se não houver usuário inicial
+        setLoading(false); // Conclui o carregamento se não houver usuário inicial
+      }
+    });
+
+    return () => {
+      isMounted = false; // Limpa a flag ao desmontar
+      console.log("AuthProvider: Unsubscribing from auth state changes.");
+      subscription.unsubscribe();
+    };
+  }, []); // Dependências vazias para rodar apenas uma vez na montagem
 
   const signIn = async (email: string, password: string) => {
     console.log("signIn: Attempting to sign in with email:", email);
@@ -128,6 +129,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     console.log("signOut: Attempting to sign out.");
     await supabase.auth.signOut();
     setIsAdmin(false);
+    setSession(null);
+    setUser(null);
     console.log("signOut: Signed out, isAdmin set to false.");
   };
 
