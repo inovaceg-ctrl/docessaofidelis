@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, X } from "lucide-react";
+import { Pencil, Trash2, Plus, X, UploadCloud } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 interface Product {
@@ -27,6 +27,7 @@ const Products = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null); // New state for file upload
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -62,13 +63,56 @@ const Products = () => {
     setLoading(false);
   };
 
+  const handleFileUpload = async (): Promise<string | null> => {
+    if (!selectedFile) return null;
+
+    const fileExtension = selectedFile.name.split(".").pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExtension}`;
+    const filePath = `products/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from("product-images")
+      .upload(filePath, selectedFile, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (error) {
+      toast({
+        title: "Erro ao fazer upload da imagem",
+        description: error.message,
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("product-images")
+      .getPublicUrl(filePath);
+
+    return publicUrlData.publicUrl;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    let imageUrl = formData.image_url;
+    if (selectedFile) {
+      const uploadedUrl = await handleFileUpload();
+      if (uploadedUrl) {
+        imageUrl = uploadedUrl;
+      } else {
+        // If upload failed, stop submission
+        return;
+      }
+    }
+
+    const productData = { ...formData, image_url: imageUrl };
 
     if (editingProduct) {
       const { error } = await supabase
         .from("products")
-        .update(formData)
+        .update(productData)
         .eq("id", editingProduct.id);
 
       if (error) {
@@ -85,7 +129,7 @@ const Products = () => {
     } else {
       const { error } = await supabase
         .from("products")
-        .insert([formData]);
+        .insert([productData]);
 
       if (error) {
         toast({
@@ -103,6 +147,26 @@ const Products = () => {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir este produto?")) return;
+
+    // Optional: Delete image from storage as well
+    const productToDelete = products.find(p => p.id === id);
+    if (productToDelete?.image_url) {
+      const filePath = productToDelete.image_url.split("product-images/")[1];
+      if (filePath) {
+        const { error: storageError } = await supabase.storage
+          .from("product-images")
+          .remove([filePath]);
+        if (storageError) {
+          console.error("Erro ao excluir imagem do storage:", storageError.message);
+          toast({
+            title: "Erro ao excluir imagem do storage",
+            description: storageError.message,
+            variant: "destructive",
+          });
+          // Continue with product deletion even if image deletion fails
+        }
+      }
+    }
 
     const { error } = await supabase
       .from("products")
@@ -132,6 +196,7 @@ const Products = () => {
       active: product.active,
       sort_order: product.sort_order,
     });
+    setSelectedFile(null); // Clear selected file when editing
     setShowForm(true);
   };
 
@@ -146,6 +211,7 @@ const Products = () => {
       sort_order: 0,
     });
     setEditingProduct(null);
+    setSelectedFile(null);
     setShowForm(false);
   };
 
@@ -242,14 +308,29 @@ const Products = () => {
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="image_url">URL da Imagem</Label>
+                    <Label htmlFor="image_upload">Imagem do Produto</Label>
                     <Input
-                      id="image_url"
-                      type="url"
-                      value={formData.image_url}
-                      onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                      placeholder="https://..."
+                      id="image_upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
+                      className="file:text-primary file:bg-primary/10 file:border-0 file:rounded-md file:font-medium file:mr-4 hover:file:bg-primary/20"
                     />
+                    {(selectedFile || formData.image_url) && (
+                      <div className="mt-4 flex items-center gap-4">
+                        <img
+                          src={selectedFile ? URL.createObjectURL(selectedFile) : formData.image_url || ""}
+                          alt="Pré-visualização da imagem"
+                          className="w-24 h-24 object-cover rounded-md border"
+                        />
+                        <Button variant="outline" size="sm" onClick={() => {
+                          setSelectedFile(null);
+                          setFormData(prev => ({ ...prev, image_url: "" }));
+                        }}>
+                          <X className="h-4 w-4 mr-2" /> Remover Imagem
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <Button type="submit" className="bg-primary hover:bg-primary/90">
@@ -293,6 +374,13 @@ const Products = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
+                    {product.image_url && (
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                        className="w-full h-32 object-cover rounded-md mb-4"
+                      />
+                    )}
                     <p className="text-sm text-muted-foreground mb-2">
                       <strong>Categoria:</strong> {product.category}
                     </p>
