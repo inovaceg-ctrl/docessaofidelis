@@ -51,7 +51,7 @@ const Home = () => {
     };
 
     loadHighlightProducts();
-  }, [toast]);
+  }, []); // Dependência alterada de [toast] para []
 
   const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
