@@ -4,16 +4,54 @@ import { ArrowRight, Award, Heart, Leaf } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import heroImage from "@/assets/hero-bananas.jpg";
-import bananadaImage from "@/assets/bananada-product.jpg";
-import gomaImage from "@/assets/goma-product.jpg";
+import bananadaImage from "@/assets/bananada-product.jpg"; // Fallback image
+import gomaImage from "@/assets/goma-product.jpg"; // Fallback image
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+
+interface Product {
+  id: string;
+  name: string;
+  category: string;
+  description: string | null;
+  weight: string | null;
+  image_url: string | null;
+  active: boolean;
+  sort_order: number;
+}
 
 const Home = () => {
   const { toast } = useToast();
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [loadingNewsletter, setLoadingNewsletter] = useState(false);
+  const [highlightProducts, setHighlightProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+
+  useEffect(() => {
+    const loadHighlightProducts = async () => {
+      setLoadingProducts(true);
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("active", true)
+        .order("sort_order", { ascending: true })
+        .limit(2); // Limit to 2 products for the highlight section
+
+      if (error) {
+        toast({
+          title: "Erro ao carregar produtos em destaque",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        setHighlightProducts(data || []);
+      }
+      setLoadingProducts(false);
+    };
+
+    loadHighlightProducts();
+  }, [toast]);
 
   const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +83,10 @@ const Home = () => {
     }
 
     setLoadingNewsletter(false);
+  };
+
+  const getProductFallbackImage = (category: string) => {
+    return category.toLowerCase().includes("banana") ? bananadaImage : gomaImage;
   };
 
   return (
@@ -126,52 +168,38 @@ const Home = () => {
           <h2 className="text-4xl font-bold text-center mb-16 text-foreground">
             Nossos Produtos
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            <div className="group overflow-hidden rounded-lg shadow-lg hover:shadow-2xl transition-shadow">
-              <div className="relative h-80 overflow-hidden">
-                <img
-                  src={bananadaImage}
-                  alt="Bananada"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-                <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                  <h3 className="text-3xl font-bold mb-2">Bananadas</h3>
-                  <p className="text-sm opacity-90 mb-4">
-                    Nosso produto tradicional, feito com bananas selecionadas e muito amor
-                  </p>
-                  <Link to="/produtos">
-                    <Button variant="secondary" size="sm" className="group/btn">
-                      Saiba mais
-                      <ArrowRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
-                    </Button>
-                  </Link>
+          {loadingProducts ? (
+            <p className="text-center text-muted-foreground">Carregando produtos...</p>
+          ) : highlightProducts.length === 0 ? (
+            <p className="text-center text-muted-foreground">Nenhum produto em destaque disponível no momento.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+              {highlightProducts.map((product) => (
+                <div key={product.id} className="group overflow-hidden rounded-lg shadow-lg hover:shadow-2xl transition-shadow">
+                  <div className="relative h-80 overflow-hidden">
+                    <img
+                      src={product.image_url || getProductFallbackImage(product.category)}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+                    <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                      <h3 className="text-3xl font-bold mb-2">{product.name}</h3>
+                      <p className="text-sm opacity-90 mb-4">
+                        {product.description || `Nosso produto de ${product.category}, feito com ingredientes selecionados.`}
+                      </p>
+                      <Link to="/produtos">
+                        <Button variant="secondary" size="sm" className="group/btn">
+                          Saiba mais
+                          <ArrowRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-            <div className="group overflow-hidden rounded-lg shadow-lg hover:shadow-2xl transition-shadow">
-              <div className="relative h-80 overflow-hidden">
-                <img
-                  src={gomaImage}
-                  alt="Gomas de Amido"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-                <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                  <h3 className="text-3xl font-bold mb-2">Gomas de Amido</h3>
-                  <p className="text-sm opacity-90 mb-4">
-                    Doces coloridos e saborosos que encantam todas as idades
-                  </p>
-                  <Link to="/produtos">
-                    <Button variant="secondary" size="sm" className="group/btn">
-                      Saiba mais
-                      <ArrowRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </section>
 
