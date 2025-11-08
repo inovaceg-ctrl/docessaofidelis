@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./hooks/useAuth";
+import { AuthProvider, ProtectedRoute } from "./hooks/useAuth"; // Importe ProtectedRoute
 import Home from "./pages/Home";
 import Empresa from "./pages/Empresa";
 import Produtos from "./pages/Produtos";
@@ -32,10 +32,11 @@ const App = () => (
             <Route path="/qualidade" element={<Qualidade />} />
             <Route path="/contato" element={<Contato />} />
             <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin/dashboard" element={<Dashboard />} />
-            <Route path="/admin/products" element={<AdminProducts />} />
-            <Route path="/admin/contacts" element={<AdminContacts />} />
-            <Route path="/admin/newsletter" element={<Newsletter />} />
+            {/* Rotas administrativas protegidas */}
+            <Route path="/admin/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/admin/products" element={<ProtectedRoute><AdminProducts /></ProtectedRoute>} />
+            <Route path="/admin/contacts" element={<ProtectedRoute><AdminContacts /></ProtectedRoute>} />
+            <Route path="/admin/newsletter" element={<ProtectedRoute><Newsletter /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
